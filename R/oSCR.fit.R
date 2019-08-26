@@ -200,7 +200,7 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
     model[[4]] <- formula(~1)
   }
   for (i in 1:4) {
-    model[[i]] <- update.formula(model[[i]], NULL ~ .)
+    model[[i]] <- reformulate(as.character(delete.response(terms(model[[i]])))[-1])
   }
   if((length(labels(terms(model[[4]])))>0) & distmet=="euc"){
     stop("Error: asu model specified but no 'dismet'. Use distmet=ecol.)")

@@ -126,8 +126,11 @@ make.scrFrame <- function(caphist, traps, indCovs=NULL, trapCovs=NULL, sigCovs=N
       }else{
         where <- caphist[[i]][j, , ] > 0
       }
-      if (sum(where) > 1)
-        max.dist <- c(max.dist, max(0, dist(traps[[i]][where, c("X", "Y")]), na.rm = T))
+      if (sum(where) > 1){
+        m <- traps[[i]][where, c("X", "Y")]
+        mode(m) <- "double"
+        max.dist <- c(max.dist, max(0, dist(m), na.rm = T))
+      }
     }
   }
   mmdm <- mean(max.dist[max.dist > 0], na.rm = T)
