@@ -90,7 +90,14 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
           plotit = F, mycex = 1, nlmgradtol = 1e-06, nlmstepmax = 10, smallslow = FALSE, 
           print.level = 0){
   
-  
+  library(optimParallel)
+  clus <- makeCluster(detectCores());
+  setDefaultCluster(cl = clus)
+  clusterEvalQ(clus, library("abind"));
+  clusterEvalQ(clus, library("gdistance"));
+  clusterEvalQ(clus, library("Formula"));
+  clusterEvalQ(clus, library("FNN"));
+
   #match.arg(encmod) will set encmod to "B"
   
   ptm <- proc.time()
@@ -1618,10 +1625,9 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
           message(paste(pn, " ", sep = " | "))
           message(" ")
           myfit <- suppressWarnings(
-                     nlm(msLL.nosex, p = pv, pn = pn, D = D, nG = nG, nK = nK,
-                         hiK = hiK, dm.den = dm.den, dm.trap = dm.trap,
-                         hessian = hessian, print.level = print.level, 
-                         iterlim = 200))
+              optimParallel(par = pv, fn = msLL.nosex, gr=NULL,
+                            pn = pn, D = D, nG = nG, nK = nK,
+                            hiK = hiK, dm.den = dm.den, dm.trap = dm.trap, hessian = hessian))
         }
         else {
           if (telem){
@@ -1632,13 +1638,13 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
           message(paste(pn, " ", sep = " | "))
           message(" ")
           myfit <- suppressWarnings(
-                     nlm(msLL.sex, scrFrame=scrFrame, p = pv, pn = pn, D = D, nG = nG, nK = nK,
-                         hiK = hiK, dm.den = dm.den, dm.trap = dm.trap,
-                         hessian = hessian, print.level = print.level, 
-                         iterlim = 200))
+              optimParallel(par = pv, fn = msLL.sex, gr=NULL,
+                            scrFrame=scrFrame, pn = pn, D = D, nG = nG, nK = nK,
+                            hiK = hiK, dm.den = dm.den, dm.trap = dm.trap, hessian = hessian))
         }
         links <- rep(NA, length(pn))
-        pars <- myfit$estimate
+        pars <- myfit$par
+
         if (encmod == "B") {
           links[grep(fixed=TRUE,"p0.(Intercept)", pn)] <- "(logit)"
         }
@@ -1688,7 +1694,7 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
         }
 #        outStats <- data.frame(parameters = pn, link = links, mle = myfit$estimate, 
 #                               std.er = std.err, mle.tr = trans.mle, se.tr = trans.se)
-        outStats <- data.frame(parameters = pn, mle = myfit$estimate, std.er = std.err)
+        outStats <- data.frame(parameters = pn, mle = myfit$par, std.er = std.err)
         VcV <- NULL
         if(DorN == "N") {
         ## write some code to return per session density 
@@ -1700,10 +1706,10 @@ function (model = list(D ~ 1, p0 ~ 1, sig ~ 1, asu ~1), scrFrame, ssDF,
         endtime <- format(Sys.time(), "%H:%M:%S %d %b %Y")
         output <- list(call = cl, model=model.call,rawOutput = myfit, 
                        outStats = outStats, 
-                       coef.mle = data.frame(param = pn, mle = myfit$estimate),
+                       coef.mle = data.frame(param = pn, mle = myfit$par),
                        Area = areaS, nObs = unlist(lapply(scrFrame$caphist,nrow)),
-                       mmdm = mmdm, nll = myfit$minimum, 
-                       AIC = 2 * myfit$minimum + 2 * length(myfit$estimate),
+                       mmdm = mmdm, nll = myfit$value, 
+                       AIC = 2 * myfit$value + 2 * length(myfit$par),
                        started = starttime, ended = endtime,
                        proctime = (proc.time() - ptm)[3]/60, scrFrame = scrFrame,
                        ssDF = ssDF, costDF = costDF, rsfDF = rsfDF)
